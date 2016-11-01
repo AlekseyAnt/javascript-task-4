@@ -173,7 +173,11 @@ if (exports.isStar) {
 
         function or(collection) {
             return filters.reduce(function (result, f) {
-                return result.concat(f(collection));
+                var newCollection = f(collection).filter(function (value) {
+                    return result.indexOf(value) === -1;
+                });
+
+                return result.concat(newCollection);
             }, []);
         }
 
@@ -192,7 +196,7 @@ if (exports.isStar) {
         function and(collection) {
             filters.forEach(function (f) {
                 collection = f(collection);
-            }, []);
+            });
 
             return collection;
         }
