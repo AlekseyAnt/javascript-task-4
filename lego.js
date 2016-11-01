@@ -172,13 +172,13 @@ if (exports.isStar) {
         var filters = [].slice.call(arguments);
 
         function or(collection) {
-            return filters.reduce(function (result, f) {
-                var newCollection = f(collection).filter(function (value) {
-                    return result.indexOf(value) === -1;
-                });
-
-                return result.concat(newCollection);
+            var objects = filters.reduce(function (result, f) {
+                return result.concat(f(collection));
             }, []);
+
+            return collection.filter(function (obj) {
+                return objects.indexOf(obj) !== -1;
+            });
         }
 
         return or;
