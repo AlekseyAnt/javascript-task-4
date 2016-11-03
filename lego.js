@@ -7,7 +7,7 @@
 exports.isStar = true;
 
 
-var priority = {
+var PRIORITY = {
     'or': 1,
     'and': 2,
     'filterIn': 3,
@@ -24,18 +24,18 @@ var priority = {
  * @returns {Array}
  */
 exports.query = function (collection) {
-    var functions = [].slice.call(arguments).slice(1);
+    var functions = [].slice.call(arguments, 1);
 
-    functions = functions.filter(function (obj) {
-        return typeof obj === 'function' && priority.hasOwnProperty(obj.name);
+    functions = functions.filter(function (functionItem) {
+        return typeof functionItem === 'function' && PRIORITY.hasOwnProperty(functionItem.name);
     });
 
     functions.sort(function (a, b) {
-        return priority[a.name] - priority[b.name];
+        return PRIORITY[a.name] - PRIORITY[b.name];
     });
 
-    functions.forEach(function (f) {
-        collection = f(collection);
+    functions.forEach(function (functionItem) {
+        collection = functionItem(collection);
     });
 
     return collection;
@@ -49,17 +49,17 @@ exports.query = function (collection) {
 exports.select = function () {
     var properties = [].slice.call(arguments);
 
-    function selectProperties(obj) {
-        var newObj = {};
+    function selectProperties(person) {
+        var newPerson = {};
         for (var i = 0; i < properties.length; i++) {
             var property = properties[i];
 
-            if (obj.hasOwnProperty(property)) {
-                newObj[property] = obj[property];
+            if (person.hasOwnProperty(property)) {
+                newPerson[property] = person[property];
             }
         }
 
-        return newObj;
+        return newPerson;
     }
 
     function select(collection) {
@@ -76,11 +76,9 @@ exports.select = function () {
  * @returns {Function}
  */
 exports.filterIn = function (property, values) {
-    console.info(property, values);
-
     function filterIn(collection) {
-        return collection.filter(function (obj) {
-            return obj.hasOwnProperty(property) && values.indexOf(obj[property]) !== -1;
+        return collection.filter(function (person) {
+            return person.hasOwnProperty(property) && values.indexOf(person[property]) !== -1;
         });
     }
 
@@ -94,7 +92,6 @@ exports.filterIn = function (property, values) {
  * @returns {Function}
  */
 exports.sortBy = function (property, order) {
-    console.info(property, order);
     var i = (order === 'asc') ? 1 : -1;
 
     function compare(a, b) {
@@ -125,21 +122,19 @@ exports.sortBy = function (property, order) {
  * @returns {Function}
  */
 exports.format = function (property, formatter) {
-    console.info(property, formatter);
+    function formatProperty(person) {
+        var newPerson = {};
+        Object.assign(newPerson, person);
 
-    function fromatProperty(item) {
-        var obj = {};
-        Object.assign(obj, item);
-
-        if (obj.hasOwnProperty(property)) {
-            obj[property] = formatter(obj[property]);
+        if (newPerson.hasOwnProperty(property)) {
+            newPerson[property] = formatter(newPerson[property]);
         }
 
-        return obj;
+        return newPerson;
     }
 
     function format(collection) {
-        return collection.map(fromatProperty);
+        return collection.map(formatProperty);
     }
 
     return format;
@@ -151,8 +146,6 @@ exports.format = function (property, formatter) {
  * @returns {Function}
  */
 exports.limit = function (count) {
-    console.info(count);
-
     function limit(collection) {
         return collection.slice(0, count);
     }
@@ -172,12 +165,14 @@ if (exports.isStar) {
         var filters = [].slice.call(arguments);
 
         function or(collection) {
-            var objects = filters.reduce(function (result, f) {
-                return result.concat(f(collection));
-            }, []);
+            function addSuitablePersons(suitablePersons, functionItem) {
+                return suitablePersons.concat(functionItem(collection));
+            }
 
-            return collection.filter(function (obj) {
-                return objects.indexOf(obj) !== -1;
+            var suitablePersons = filters.reduce(addSuitablePersons, []);
+
+            return collection.filter(function (person) {
+                return suitablePersons.indexOf(person) !== -1;
             });
         }
 
@@ -194,8 +189,8 @@ if (exports.isStar) {
         var filters = [].slice.call(arguments);
 
         function and(collection) {
-            filters.forEach(function (f) {
-                collection = f(collection);
+            filters.forEach(function (functionItem) {
+                collection = functionItem(collection);
             });
 
             return collection;
