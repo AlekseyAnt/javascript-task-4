@@ -41,6 +41,19 @@ exports.query = function (collection) {
     return collection;
 };
 
+function selectProperties(item, properties) {
+    var newItem = {};
+    for (var i = 0; i < properties.length; i++) {
+        var property = properties[i];
+
+        if (item.hasOwnProperty(property)) {
+            newItem[property] = item[property];
+        }
+    }
+
+    return newItem;
+}
+
 /**
  * Выбор полей
  * @params {...String}
@@ -49,21 +62,10 @@ exports.query = function (collection) {
 exports.select = function () {
     var properties = [].slice.call(arguments);
 
-    function selectProperties(person) {
-        var newPerson = {};
-        for (var i = 0; i < properties.length; i++) {
-            var property = properties[i];
-
-            if (person.hasOwnProperty(property)) {
-                newPerson[property] = person[property];
-            }
-        }
-
-        return newPerson;
-    }
-
     function select(collection) {
-        return collection.map(selectProperties);
+        return collection.map(function (item) {
+            return selectProperties(item, properties);
+        });
     }
 
     return select;
@@ -77,8 +79,8 @@ exports.select = function () {
  */
 exports.filterIn = function (property, values) {
     function filterIn(collection) {
-        return collection.filter(function (person) {
-            return person.hasOwnProperty(property) && values.indexOf(person[property]) !== -1;
+        return collection.filter(function (item) {
+            return item.hasOwnProperty(property) && values.indexOf(item[property]) !== -1;
         });
     }
 
@@ -122,15 +124,14 @@ exports.sortBy = function (property, order) {
  * @returns {Function}
  */
 exports.format = function (property, formatter) {
-    function formatProperty(person) {
-        var newPerson = {};
-        Object.assign(newPerson, person);
+    function formatProperty(item) {
+        var newItem = selectProperties(item, Object.keys(item));
 
-        if (newPerson.hasOwnProperty(property)) {
-            newPerson[property] = formatter(newPerson[property]);
+        if (newItem.hasOwnProperty(property)) {
+            newItem[property] = formatter(newItem[property]);
         }
 
-        return newPerson;
+        return newItem;
     }
 
     function format(collection) {
@@ -165,14 +166,21 @@ if (exports.isStar) {
         var filters = [].slice.call(arguments);
 
         function or(collection) {
-            function addSuitablePersons(suitablePersons, functionItem) {
-                return suitablePersons.concat(functionItem(collection));
-            }
+            var indexes = [];
+            filters.forEach(function (filter) {
+                var filteredCollection = filter(collection);
+                filteredCollection.forEach(function (item) {
+                    var index = collection.indexOf(item);
+                    if (indexes.indexOf(index) === -1) {
+                        indexes.push(index);
+                    }
+                });
+            });
 
-            var suitablePersons = filters.reduce(addSuitablePersons, []);
+            indexes.sort();
 
-            return collection.filter(function (person) {
-                return suitablePersons.indexOf(person) !== -1;
+            return indexes.map(function (i) {
+                return collection[i];
             });
         }
 
