@@ -35,7 +35,19 @@ exports.query = function (collection) {
     });
 
     functions.forEach(function (functionItem) {
-        collection = functionItem(collection);
+        switch (functionItem.name) {
+            case 'or':
+            case 'and':
+            case 'filterIn':
+                collection = collection.filter(functionItem);
+                break;
+            case 'select':
+            case 'format':
+                collection = collection.map(functionItem);
+                break;
+            default:
+                collection = functionItem(collection);
+        }
     });
 
     return collection;
@@ -62,13 +74,9 @@ function selectProperties(item, properties) {
 exports.select = function () {
     var properties = [].slice.call(arguments);
 
-    function select(collection) {
-        return collection.map(function (item) {
-            return selectProperties(item, properties);
-        });
-    }
-
-    return select;
+    return function select(item) {
+        return selectProperties(item, properties);
+    };
 };
 
 /**
@@ -78,13 +86,9 @@ exports.select = function () {
  * @returns {Function}
  */
 exports.filterIn = function (property, values) {
-    function filterIn(collection) {
-        return collection.filter(function (item) {
-            return item.hasOwnProperty(property) && values.indexOf(item[property]) !== -1;
-        });
-    }
-
-    return filterIn;
+    return function filterIn(item) {
+        return item.hasOwnProperty(property) && values.indexOf(item[property]) !== -1;
+    };
 };
 
 /**
@@ -124,7 +128,7 @@ exports.sortBy = function (property, order) {
  * @returns {Function}
  */
 exports.format = function (property, formatter) {
-    function formatProperty(item) {
+    function format(item) {
         var newItem = selectProperties(item, Object.keys(item));
 
         if (newItem.hasOwnProperty(property)) {
@@ -132,10 +136,6 @@ exports.format = function (property, formatter) {
         }
 
         return newItem;
-    }
-
-    function format(collection) {
-        return collection.map(formatProperty);
     }
 
     return format;
@@ -147,11 +147,9 @@ exports.format = function (property, formatter) {
  * @returns {Function}
  */
 exports.limit = function (count) {
-    function limit(collection) {
+    return function limit(collection) {
         return collection.slice(0, count);
-    }
-
-    return limit;
+    };
 };
 
 if (exports.isStar) {
@@ -165,23 +163,11 @@ if (exports.isStar) {
     exports.or = function () {
         var filters = [].slice.call(arguments);
 
-        function or(collection) {
-            var indexes = [];
-            filters.forEach(function (filter) {
-                var filteredCollection = filter(collection);
-                filteredCollection.forEach(function (item) {
-                    var index = collection.indexOf(item);
-                    if (indexes.indexOf(index) === -1) {
-                        indexes.push(index);
-                    }
-                });
-            });
+        function or(item) {
+            return filters.reduce(function (result, filter) {
+                return result || filter(item);
+            }, false);
 
-            indexes.sort();
-
-            return indexes.map(function (i) {
-                return collection[i];
-            });
         }
 
         return or;
@@ -196,12 +182,11 @@ if (exports.isStar) {
     exports.and = function () {
         var filters = [].slice.call(arguments);
 
-        function and(collection) {
-            filters.forEach(function (functionItem) {
-                collection = functionItem(collection);
-            });
+        function and(item) {
+            return filters.reduce(function (result, filter) {
+                return result && filter(item);
+            }, true);
 
-            return collection;
         }
 
         return and;
